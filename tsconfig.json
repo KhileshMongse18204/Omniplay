@@ -1,0 +1,20 @@
+// Type-check config for the Node side (core, api, worker).
+// Perf: Node runs these .ts files directly (built-in type stripping), so there is no build step,
+// no transpiler in memory and instant restarts. That is why only erasable TS syntax is allowed.
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["es2023"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": false,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["packages/core/src", "packages/core/*.ts", "apps/api/src", "apps/worker/src"]
+}

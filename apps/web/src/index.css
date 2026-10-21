@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+/* Self-hosted fonts. One variable Archivo file (weight 100–900 × width 62–125%) covers body text AND the
+   expanded black display face; it's preloaded in index.html. Space Mono is only for small labels, so it isn't. */
+@font-face {
+  font-family: "Archivo";
+  src: url("/fonts/archivo-wdth-v1.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Space Mono";
+  src: url("/fonts/space-mono-700-v1.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* Theme tokens are plain CSS variables: switching theme or accent is one attribute/variable change with
+   no re-render and no extra CSS download. Tailwind maps them to utilities (bg-surface, text-muted, …). */
+@theme {
+  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+}
+
+:root,
+[data-theme="midnight"] {
+  --bg: #0b0b0f;
+  --surface: #15151d;
+  --surface-2: #1e1e29;
+  --ink: #f4f1ea;
+  --muted: #a6a2b2;
+  --line: #f4f1ea;
+  --dots: rgb(244 241 234 / 0.07);
+  --accent: #b6ff3b;
+  --accent-ink: #0b0b0f;
+  color-scheme: dark;
+}
+[data-theme="cream"] {
+  --bg: #f1ede4;
+  --surface: #fffdf8;
+  --surface-2: #f6f0e3;
+  --ink: #111111;
+  --muted: #5b5750;
+  --line: #111111;
+  --dots: rgb(17 17 17 / 0.08);
+  color-scheme: light;
+}
+[data-theme="arcade"] {
+  --bg: #0a0016;
+  --surface: #150a2c;
+  --surface-2: #1f103d;
+  --ink: #f2ebff;
+  --muted: #b9a8ea;
+  --line: #ff2bd6;
+  --dots: rgb(0 240 255 / 0.09);
+  color-scheme: dark;
+}
+
+html {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  min-height: 100dvh;
+  overflow-x: clip; /* safety net against sideways scroll on phones; unlike `hidden` it keeps position: sticky working */
+  /* Halftone dot grid as one CSS gradient: no image request, nothing to decode. */
+  background-image: radial-gradient(var(--dots) 1px, transparent 1.6px);
+  background-size: 18px 18px;
+}
+[data-theme="arcade"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  background: repeating-linear-gradient(transparent 0 2px, rgb(0 0 0 / 0.18) 2px 3px);
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@layer components {
+  /* Neo-brutalist block: thick border + hard offset shadow. The shadow takes the item's own colour (--c)
+     in dark themes and is classic black in Cream. */
+  .brut {
+    border: 2.5px solid var(--line);
+    box-shadow: var(--sx, 5px) var(--sx, 5px) 0 var(--hard, var(--c, var(--accent)));
+    transition: box-shadow 0.15s, translate 0.15s;
+  }
+  [data-theme="cream"] .brut { --hard: #111111; }
+  [data-theme="arcade"] .brut { --hard: #00f0ff; }
+  .brut-hover:hover { --sx: 8px; } /* Motion lifts the element; the shadow grows to match */
+
+  .display {
+    font-weight: 900;
+    font-stretch: 125%;
+    text-transform: uppercase;
+    letter-spacing: -0.015em;
+    line-height: 0.9;
+  }
+  .label {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .halftone {
+    background-image: radial-gradient(rgb(0 0 0 / 0.28) 1px, transparent 1.7px);
+    background-size: 7px 7px;
+  }
+  .glass {
+    background: color-mix(in oklab, var(--surface) 88%, transparent); /* readable even where backdrop blur is unsupported */
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.7rem 1.1rem;
+    font-weight: 800;
+    border: 2.5px solid var(--line);
+    background: var(--surface);
+    box-shadow: 4px 4px 0 var(--line);
+    transition: box-shadow 0.12s, translate 0.12s;
+  }
+  .btn:hover { translate: -2px -2px; box-shadow: 6px 6px 0 var(--line); }
+  .btn:active { translate: 2px 2px; box-shadow: 1px 1px 0 var(--line); }
+  .btn-accent { background: var(--accent); color: var(--accent-ink); }
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+}
+
+/* Story progress bars run on a CSS animation: no JS timer, and holding a finger pauses it. */
+@keyframes story-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .brut, .btn { transition: none; }
+}

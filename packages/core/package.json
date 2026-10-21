@@ -1,0 +1,26 @@
+{
+  "name": "@omniplay/core",
+  "private": true,
+  "type": "module",
+  "description": "Shared DB schema, Redis, queue, settings and storage code for api + worker",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --env-file-if-exists=../../.env src/migrate.ts",
+    "db:seed": "node --env-file-if-exists=../../.env src/seed.ts"
+  },
+  "dependencies": {
+    "aws4fetch": "^1.0.20",
+    "bullmq": "^6.3.17",
+    "drizzle-orm": "^0.45.4",
+    "ioredis": "^6.0.0",
+    "nodemailer": "^10.1.7",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^8.0.2",
+    "drizzle-kit": "^0.31.11"
+  }
+}

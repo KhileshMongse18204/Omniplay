@@ -1,0 +1,10 @@
+# Cloudflare Pages headers for the admin app: long-lived caching for hashed bundles, and a locked-down
+# page (no framing, no indexing, no referrer leaks of admin URLs).
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  X-Robots-Tag: noindex, nofollow
+  Referrer-Policy: same-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()

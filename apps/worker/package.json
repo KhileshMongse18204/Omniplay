@@ -1,0 +1,14 @@
+{
+  "name": "@omniplay/worker",
+  "private": true,
+  "type": "module",
+  "description": "BullMQ worker: link checks, image processing, stats flush, trending, sitemap, backups, email, imports",
+  "scripts": {
+    "dev": "node --env-file-if-exists=../../.env --watch src/worker.ts",
+    "start": "node src/worker.ts"
+  },
+  "dependencies": {
+    "@omniplay/core": "*",
+    "sharp": "^0.35.5"
+  }
+}

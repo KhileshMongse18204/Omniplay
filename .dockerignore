@@ -1,0 +1,10 @@
+# Perf: a small build context keeps image builds fast on a cheap VPS; frontends ship to Cloudflare Pages, not Docker.
+**/node_modules
+**/dist
+.env
+.git
+apps/web/src
+apps/web/public
+apps/admin/src
+apps/admin/public
+*.log

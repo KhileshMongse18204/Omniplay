@@ -1,0 +1,155 @@
+# OmniPlay backend for local dev and for one small VPS (2 vCPU / 2 GB).
+#   dev:  docker compose up -d --build            -> API on http://localhost:3000
+#   prod: docker compose --profile prod up -d --build  (adds the Cloudflare Tunnel; the VPS opens no inbound ports)
+# Frontends (apps/web, apps/admin) are static and deploy to Cloudflare Pages, not here.
+#
+# Perf/resource notes:
+# - Memory limits add up to ~1.6 GB, leaving room for the OS on a 2 GB box, and no single service can starve the rest.
+# - Every port binds to 127.0.0.1 only: Cloudflare reaches the API through the tunnel; nothing is public.
+# - The API, worker and migrate step run the same Dockerfile and only differ by command.
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: 10m, max-file: "3" } # log rotation: a full disk is the classic cheap-VPS outage
+
+x-app: &app
+  # Same Dockerfile for all three; the build cache makes the 2nd and 3rd builds instant and the layers are shared on disk.
+  build: { context: ., dockerfile: docker/Dockerfile }
+  env_file: .env
+  environment: &app-env
+    NODE_ENV: production
+    # .env points at localhost for host-run dev; inside compose we use service names.
+    DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
+    DIRECT_DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    REDIS_URL: redis://redis:6379
+  restart: unless-stopped
+  logging: *logging
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # Tuned for ~512 MB: a quarter of it for shared_buffers; SSD-friendly planner costs; small work_mem
+    # because PgBouncer keeps the real connection count low (pool 20, max 60).
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c effective_cache_size=384MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=32MB
+      -c max_connections=60
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c wal_compression=on
+      -c checkpoint_completion_target=0.9
+    volumes: [pgdata:/var/lib/postgresql/data]
+    ports: ["127.0.0.1:5432:5432"]
+    shm_size: 128mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    deploy: { resources: { limits: { memory: 512M } } }
+    restart: unless-stopped
+    logging: *logging
+
+  pgbouncer:
+    image: edoburu/pgbouncer:v1.26.1-p0
+    # Transaction pooling: up to 1000 app connections share 20 real Postgres connections,
+    # so API replicas and worker concurrency can grow without exhausting Postgres.
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      LISTEN_PORT: 6432
+      AUTH_TYPE: scram-sha-256
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 1000
+      DEFAULT_POOL_SIZE: 20
+      IGNORE_STARTUP_PARAMETERS: extra_float_digits,options
+    ports: ["127.0.0.1:6432:6432"]
+    depends_on: { postgres: { condition: service_healthy } }
+    deploy: { resources: { limits: { memory: 32M } } }
+    restart: unless-stopped
+    logging: *logging
+
+  redis:
+    image: redis:7.4-alpine
+    # Cache + rate limits + stats counters + BullMQ queues in one instance.
+    # noeviction is required by BullMQ (evicting a job key corrupts the queue); cache keys stay bounded
+    # because every one has a short TTL. AOF everysec keeps unflushed counters and queued jobs across restarts.
+    # shortcut: one Redis for everything; if memory gets tight, move the cache to a 2nd instance with allkeys-lru.
+    command: >
+      redis-server
+      --maxmemory 200mb
+      --maxmemory-policy noeviction
+      --appendonly yes
+      --appendfsync everysec
+      --save ""
+    volumes: [redisdata:/data]
+    ports: ["127.0.0.1:6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    deploy: { resources: { limits: { memory: 256M } } }
+    restart: unless-stopped
+    logging: *logging
+
+  # One-shot per deploy: apply migrations + create the owner account, then exit.
+  migrate:
+    <<: *app
+    command: ["node", "packages/core/src/migrate.ts"]
+    restart: "no"
+    depends_on: { postgres: { condition: service_healthy } }
+
+  api:
+    <<: *app
+    command: ["node", "apps/api/src/server.ts"]
+    environment:
+      <<: *app-env
+      # Keep V8's heap under the container limit so GC runs before the OOM killer does.
+      NODE_OPTIONS: --max-old-space-size=256 --disable-warning=ExperimentalWarning
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      pgbouncer: { condition: service_started }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    deploy: { resources: { limits: { memory: 320M } } }
+
+  worker:
+    <<: *app
+    command: ["node", "apps/worker/src/worker.ts"]
+    environment:
+      <<: *app-env
+      NODE_OPTIONS: --max-old-space-size=256 --disable-warning=ExperimentalWarning
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      pgbouncer: { condition: service_started }
+      redis: { condition: service_healthy }
+    deploy: { resources: { limits: { memory: 384M } } } # sharp (AVIF encoding) needs the extra headroom
+
+  # Production edge: an outbound-only tunnel to Cloudflare, so CDN + WAF sit in front of the API
+  # with no open ports, no TLS certificates to renew and no nginx to tune.
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.0
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on: { api: { condition: service_healthy } }
+    profiles: [prod]
+    deploy: { resources: { limits: { memory: 64M } } }
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  pgdata:
+  redisdata:

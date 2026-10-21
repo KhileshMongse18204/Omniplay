@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en" data-theme="midnight">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>OmniPlay: every playground on the internet</title>
+    <meta name="description" content="A hand-checked library of sites to watch, listen, play and read, sorted by what you feel like doing." />
+    <meta name="theme-color" content="#0b0b0f" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="OmniPlay: every playground on the internet" />
+    <meta property="og:description" content="Movies, music, games, anime and manga: hand-checked sites, no sign-up." />
+    <meta name="twitter:card" content="summary" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- Perf: the critical font and the first API call start downloading in parallel with the JS bundle. -->
+    <link rel="preload" href="/fonts/archivo-wdth-v1.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preconnect" href="%VITE_API_URL%" crossorigin />
+    <link rel="preload" href="%VITE_API_URL%/v1/bootstrap" as="fetch" crossorigin />
+    <!-- Apply the saved theme before first paint so it never flashes. Tiny and render-blocking on purpose. -->
+    <script>
+      try { var p = JSON.parse(localStorage.getItem('omni:theme') || '{}'); if (p.theme) { document.documentElement.dataset.theme = p.theme; } if (p.accent) { document.documentElement.style.setProperty('--accent', p.accent); } } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>OmniPlay needs JavaScript to browse the directory.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

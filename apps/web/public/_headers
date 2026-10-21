@@ -1,0 +1,11 @@
+# Cloudflare Pages response headers.
+# Hashed bundles and versioned fonts never change: browsers and the edge cache them for a year.
+# index.html keeps Pages' default revalidation, so a deploy is live immediately.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()

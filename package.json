@@ -1,0 +1,29 @@
+{
+  "name": "omniplay",
+  "private": true,
+  "type": "module",
+  "description": "OmniPlay monorepo: public directory (web), admin panel, Fastify API, BullMQ worker, shared core",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev:api": "npm run dev -w @omniplay/api",
+    "dev:worker": "npm run dev -w @omniplay/worker",
+    "dev:web": "npm run dev -w @omniplay/web",
+    "dev:admin": "npm run dev -w @omniplay/admin",
+    "build": "npm run build -w @omniplay/web -w @omniplay/admin",
+    "db:generate": "npm run db:generate -w @omniplay/core",
+    "db:migrate": "npm run db:migrate -w @omniplay/core",
+    "db:seed": "npm run db:seed -w @omniplay/core",
+    "typecheck": "tsc -p . && tsc -p apps/web && tsc -p apps/admin",
+    "test": "node --test \"packages/*/src/**/*.test.ts\" \"apps/*/src/**/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "typescript": "^7.0.2"
+  }
+}

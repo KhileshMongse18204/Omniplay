@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "include": ["/ads.txt", "/sitemap.xml", "/robots.txt"],
+  "exclude": []
+}
